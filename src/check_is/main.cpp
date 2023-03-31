@@ -26,7 +26,7 @@ get_type() {
 }
 
 template<typename T>
-typename std::enable_if<std::is_integral<T>::value, ObjectType>::type
+typename std::enable_if<!std::is_same<T, bool>::value && std::is_integral<T>::value, ObjectType>::type
 get_type() {
     return ObjectType::ObjectInt;
 }
