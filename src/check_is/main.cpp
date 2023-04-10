@@ -44,7 +44,6 @@ typename std::enable_if<std::is_same<T, char>::value && !std::is_same<T, bool>::
 }
 
 #else
-enum class ObjectType { ObjectUnknown, ObjectBool, ObjectInt, ObjectFloat };
 
 template <typename T>
 ObjectType get_type()
