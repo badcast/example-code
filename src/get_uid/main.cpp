@@ -1,17 +1,49 @@
-//#include <unistd.h>
+// #include <unistd.h>
 #include <stdio.h>
-//#include <sys/stat.h>
-//#include <time.h>
+// #include <sys/stat.h>
+// #include <time.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
 
-int main(){
-//    char a[1024];
-//    int r = gethostname(a,1024);
+void awake_get_file_uid();
 
-//    __uid_t id = getuid();
+int main()
+{
+    //    char a[1024];
+    //    int r = gethostname(a,1024);
 
+    //    __uid_t id = getuid();
 
-//    struct stat s;
-//    r = stat("/tmp/packagekit-alpm-updatesa", &s);
-//    auto b = ctime((time_t*)&s.st_atim);
-return 0;
+    //    struct stat s;
+    //    r = stat("/tmp/packagekit-alpm-updatesa", &s);
+    //    auto b = ctime((time_t*)&s.st_atim);
+
+    awake_get_file_uid();
+    return 0;
+}
+
+#include <vector>
+#include <stdlib.h>
+#include <string.h>
+
+void awake_get_file_uid() {
+    std::vector<passwd> v;
+
+    __uid_t id;
+    for(id=0;id<2000; ++id)
+    {
+        passwd* pw = getpwuid(id);
+        if(pw == nullptr)
+            continue;
+        v.push_back(*pw);
+        passwd & _x = v[id];
+        #define __ref(X)((X) = (char*)memcpy(malloc(strlen((X))+1), (X), strlen(X)))
+        __ref(_x.pw_dir);
+        __ref(_x.pw_gecos);
+        __ref(_x.pw_name);
+        __ref(_x.pw_passwd);
+        __ref(_x.pw_shell);
+    }
+    int ll = 0;
 }
