@@ -27,23 +27,24 @@ int main()
 #include <stdlib.h>
 #include <string.h>
 
-void awake_get_file_uid() {
+void awake_get_file_uid()
+{
     std::vector<passwd> v;
 
     __uid_t id;
-    for(id=0;id<2000; ++id)
-    {
+    for (id = 0; id < 2000; ++id) {
         passwd* pw = getpwuid(id);
-        if(pw == nullptr)
+        if (pw == nullptr)
             continue;
         v.push_back(*pw);
-        passwd & _x = v[id];
-        #define __ref(X)((X) = (char*)memcpy(malloc(strlen((X))+1), (X), strlen(X)))
+        passwd& _x = v[id];
+#define __ref(X) ((X) = (char*)memcpy(malloc(strlen((X))), (X), strlen(X)))
         __ref(_x.pw_dir);
         __ref(_x.pw_gecos);
         __ref(_x.pw_name);
         __ref(_x.pw_passwd);
         __ref(_x.pw_shell);
+#undef __ref
     }
     int ll = 0;
 }
