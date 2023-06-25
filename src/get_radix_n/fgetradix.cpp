@@ -1,5 +1,6 @@
 /* modf example */
 #include <iostream> /* print */
+#include <cstdint>
 #include <cmath> /* modf */
 
 // get last radix (n)
