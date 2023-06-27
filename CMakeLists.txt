@@ -4,15 +4,14 @@ project(examples LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} "-fopenmp -lm")
-set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} "-fopenmp -lm")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fopenmp -lm")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fopenmp -lm")
 
-find_package(OpenMP REQUIRED)
 find_package(OpenCL REQUIRED)
 
 file(GLOB_RECURSE TARGETS src/*.cpp src/*.c)
 
-foreach(SRC  ${TARGETS})
+foreach(SRC ${TARGETS})
     get_filename_component(EXAMPLE_PROJECT "${SRC}" PATH)
     string(FIND ${EXAMPLE_PROJECT} "/" fnd_start REVERSE)
     string(LENGTH ${EXAMPLE_PROJECT} fnd_length)

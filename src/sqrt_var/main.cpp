@@ -1,11 +1,21 @@
 #include <iostream>
 #include <cmath>
+
+#if __WIN32__
+#include <windows.h>
+#endif
+
 using namespace std;
 
 int dt(int&& a, int&& b, int&& c) { return (b * b) - 4 * a * c; }
 
 int main()
 {
+#ifdef _WINDOWS_
+    // for russian Codepage
+    SetConsoleCP(1251);
+    SetConsoleOutputCP(1251);
+#endif
     int a, b, c, d;
     cout << "Вычисление квадратного корня" << endl;
 

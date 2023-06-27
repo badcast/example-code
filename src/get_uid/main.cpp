@@ -1,3 +1,4 @@
+#if not defined(__WIN32__)
 // #include <unistd.h>
 #include <stdio.h>
 // #include <sys/stat.h>
@@ -48,3 +49,9 @@ void awake_get_file_uid()
     }
     int ll = 0;
 }
+#else
+#include <iostream>
+int main(void){
+    std::cout << "This is application not supported" << std::endl;
+}
+#endif

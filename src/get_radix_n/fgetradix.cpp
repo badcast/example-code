@@ -1,7 +1,8 @@
-/* modf example */
-#include <iostream> /* print */
+#include <iostream>
 #include <cstdint>
-#include <cmath> /* modf */
+#include <cmath>
+#include <stdint.h>
+#include <limits.h>
 
 // get last radix (n)
 std::uint64_t fget_lastof(std::uint64_t number, int a)
@@ -15,7 +16,7 @@ std::uint64_t fget_lastof(std::uint64_t number, int a)
 
 int main()
 {
-    int number = pow(2,31)-1;
+    int number = INT32_MAX;
 
     std::cout << number << std::endl;
     int _catch, i = 1;
