@@ -114,6 +114,17 @@ int main()
         clGetDeviceInfo(devices[x], CL_DEVICE_VERSION, sizeof(__temp_info.version), &__temp_info.version, nullptr);
         device_info.emplace_back(__temp_info);
     }
+    cl_device_id target_device = devices[0];
+    size_t sz;
+    check_cl_error(clGetDeviceInfo(target_device, CL_DEVICE_GLOBAL_MEM_SIZE, 0, 0, &sz));
+    size_t* m_sz = new size_t;
+    check_cl_error(clGetDeviceInfo(target_device, CL_DEVICE_GLOBAL_MEM_SIZE, sz, m_sz, &sz));
+    cout << "Размер видеопамяти: ";
+
+    check_cl_error(clGetDeviceInfo(target_device, CL_DEVICE_MAX_MEM_ALLOC_SIZE, sz, m_sz, &sz));
+
+    cout << *m_sz / 1024 / 1024 << " MiB" << endl;
+    delete m_sz;
 
     cout << "Целевой графический процессор: " << device_info[0].name << std::endl << std::endl;
 
@@ -122,7 +133,6 @@ int main()
     check_cl_error(err);
 
     // create command queue
-    cl_device_id target_device = devices[0];
     cl_command_queue command = clCreateCommandQueueWithProperties(gpu_context, target_device, nullptr, &err);
     check_cl_error(err);
 
@@ -134,7 +144,7 @@ int main()
     cout << "Выделено памяти из графического процессора: " << mem_size / 1024 << " КиБ" << endl;
 
     // make cl mem
-    char* text_to_gpu_mem = strdup("Сергей");
+    char* text_to_gpu_mem = strdup("Вадим");
     cout << "КОМПЬЮТЕР -> ГПУ: \"" << text_to_gpu_mem << "\" ... ";
     check_cl_error(clEnqueueWriteBuffer(command, mem_gpu, CL_TRUE, 0, strlen(text_to_gpu_mem), text_to_gpu_mem, 0, nullptr, nullptr));
     check_cl_error(clFinish(command));

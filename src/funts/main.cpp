@@ -11,7 +11,7 @@ int main()
     cin >> a;
     cout << "Фунты? (yes/no): ";
     cin >> accept;
-    accept[0]=tolower(accept[0]);
+    accept[0]=tolower(accept[0],locale::classic());
 
     cout << "В ";
     if(accept.front() == 'y'){
