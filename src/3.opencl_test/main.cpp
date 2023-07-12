@@ -1,20 +1,20 @@
-#include <iostream>
-#include <cstdint>
-#include <vector>
-#include <cstring>
-#include <string>
-#include <cmath>
-#include <chrono>
-#include <thread>
+#include <algorithm>
+#include <array>
 #include <CL/cl.h>
+#include <chrono>
+#include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <iostream>
+#include <string>
+#include <thread>
+#include <tuple>
+#include <vector>
 
-using namespace std;
-
-struct cl_info_data {
-    char name[64];
-    char vendor[64];
-    char version[128];
-};
+constexpr auto max_cost_vendors = 3;
+constexpr auto max_cost_value = 3u;
+constexpr std::tuple<const char *, std::uint8_t> cost_vendors[max_cost_vendors] {
+    {"nvidia corporation", max_cost_value}, {"amd", 2u}, {"intel", 1u}};
 
 void check_cl_error(cl_int errcode)
 {
@@ -22,7 +22,8 @@ void check_cl_error(cl_int errcode)
     case CODE:                                                          \
         std::cout << std::endl << "CL Error: " << (#CODE) << std::endl; \
         break
-    switch (errcode) {
+    switch(errcode)
+    {
         /* CL_DEF(CL_SUCCESS); */
         CL_DEF(CL_DEVICE_NOT_FOUND);
         CL_DEF(CL_DEVICE_NOT_AVAILABLE);
@@ -86,125 +87,200 @@ void check_cl_error(cl_int errcode)
         CL_DEF(CL_INVALID_DEVICE_QUEUE);
         CL_DEF(CL_INVALID_SPEC_ID);
         CL_DEF(CL_MAX_SIZE_RESTRICTION_EXCEEDED);
-    default:
-        cout << "UNKNOWN_CL_ERROR: " << errcode << endl;
-    case CL_SUCCESS:
-        break;
+        default:
+            std::cout << "UNKNOWN_CL_ERROR: " << errcode << std::endl;
+        case CL_SUCCESS:
+            break;
     }
-    if (errcode) {
+    if(errcode)
+    {
         exit(EXIT_FAILURE);
     }
 #undef CL_DEF
 }
 
-void printinfo(cl_info_data& info)
+cl_device_id get_best_device(const cl_platform_id platforms[], std::uint32_t num, int selplatform = -1, int seldev = -1)
 {
-    cout << "\tName: " << info.name << endl;
-    cout << "\tVendor: " << info.vendor << endl;
-    cout << "\tVersion: " << info.version << endl;
+    cl_device_id device, best_device = nullptr;
+    // gpu cost for estimate
+
+    cl_device_id devices[8];
+    cl_uint numdev;
+    std::string vendor_str;
+    size_t bufSize, bufSize2nd;
+    int best_cost, self_cost, x, y, z;
+
+    if(selplatform == -1 || selplatform >= num)
+        selplatform = 0;
+    else
+        num = selplatform + 1; // select only platform
+
+    for(x = selplatform, best_cost = -1; x < num; ++x)
+    {
+        // get devices for platform
+        if(clGetDeviceIDs(
+               platforms[x], CL_DEVICE_TYPE_GPU | CL_DEVICE_TYPE_CPU | CL_DEVICE_TYPE_ACCELERATOR, sizeof(devices), devices, &numdev) !=
+           CL_SUCCESS)
+            continue;
+
+        if(seldev != -1 || seldev >= numdev)
+        {
+            y = 0;
+        }
+        else
+        {
+            y = seldev;
+            numdev = seldev + 1; // set only device
+        }
+        for(; y < numdev; ++y)
+        {
+            device = devices[y];
+
+            // calc cost for gpu
+            // get string size
+            if(clGetDeviceInfo(device, CL_DEVICE_VENDOR, 0, nullptr, &bufSize) != CL_SUCCESS)
+                continue; // if error than skip
+
+            vendor_str.resize(bufSize, '\0');
+            clGetDeviceInfo(device, CL_DEVICE_VENDOR, bufSize, const_cast<char *>(vendor_str.data()), &bufSize2nd);
+            std::transform(
+                std::begin(vendor_str), std::end(vendor_str), std::begin(vendor_str), [](unsigned char c) { return std::tolower(c); });
+            if(bufSize != bufSize2nd)
+                std::cout << "Warn: size dynamically changed on the device "
+                             "(get_vendor_string_size) - "
+                          << vendor_str << std::endl;
+
+            // get cost
+            self_cost = 0; // set default cost for unknown device
+            for(z = 0; z < max_cost_vendors; ++z)
+            {
+                if(!std::strcmp(vendor_str.data(), std::get<0>(cost_vendors[z])))
+                {
+                    self_cost = std::get<1>(cost_vendors[z]);
+                    break;
+                }
+            }
+
+            if(self_cost > best_cost)
+            {
+                best_cost = self_cost; // get the best
+                std::swap(best_device, device);
+            }
+
+            // release unused device
+            if(device)
+                clReleaseDevice(device);
+        }
+    }
+
+    return best_device;
 }
 
 int main()
 {
     // OpenCL::OpenCL
     constexpr int MAX_PLATFORM_ID = 16;
-    constexpr int MAX_DEVICE_ID = 16;
     cl_platform_id platforms[MAX_PLATFORM_ID] {};
-    std::vector<cl_info_data> platform_info;
-    std::vector<cl_info_data> device_info;
-    cl_info_data __temp_info;
-    cl_uint x;
+
     cl_int err, status;
+    size_t sz;
+    cl_uint x;
+    cl_device_id target_device;
+    cl_command_queue command;
+    char temp_buffer[128];
 
     // get cl platrforms
     std::uint32_t platforms_n;
     check_cl_error(clGetPlatformIDs(MAX_PLATFORM_ID, platforms, &platforms_n));
-
-    for (x = 0; x < platforms_n; ++x) {
-        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_NAME, sizeof(__temp_info.name), __temp_info.name, nullptr));
-        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_VENDOR, sizeof(__temp_info.vendor), __temp_info.vendor, nullptr));
-        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_VERSION, sizeof(__temp_info.version), __temp_info.version, nullptr));
-        platform_info.emplace_back(__temp_info);
-    }
-
-    cout << "OpenCL platforms: " << platforms_n << endl;
-    for (x = 0; x < platforms_n; ++x) {
-        cout << x << ':' << endl;
-        printinfo(platform_info[x]);
+    std::cout << "OpenCL platforms: " << platforms_n << std::endl;
+    for(x = 0; x < platforms_n; ++x)
+    {
+        std::cout << x << ':' << std::endl;
+        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_NAME, sizeof(temp_buffer), temp_buffer, nullptr));
+        std::cout << "\tName: " << temp_buffer << std::endl;
+        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_VENDOR, sizeof(temp_buffer), temp_buffer, nullptr));
+        std::cout << "\tVendor: " << temp_buffer << std::endl;
+        check_cl_error(clGetPlatformInfo(platforms[x], CL_PLATFORM_VERSION, sizeof(temp_buffer), temp_buffer, nullptr));
+        std::cout << "\tVersion: " << temp_buffer << std::endl;
     }
 
     // get cl devices
-    cl_device_id devices[MAX_DEVICE_ID] {};
-    cl_uint devices_n;
-    check_cl_error(clGetDeviceIDs(platforms[0], CL_DEVICE_TYPE_GPU, MAX_DEVICE_ID, devices, &devices_n));
-    for (x = 0; x < devices_n; ++x) {
-        clGetDeviceInfo(devices[x], CL_DEVICE_NAME, sizeof(__temp_info.name), __temp_info.name, nullptr);
-        clGetDeviceInfo(devices[x], CL_DEVICE_VENDOR, sizeof(__temp_info.vendor), __temp_info.vendor, nullptr);
-        clGetDeviceInfo(devices[x], CL_DEVICE_VERSION, sizeof(__temp_info.version), __temp_info.version, nullptr);
-        device_info.emplace_back(__temp_info);
+    std::cout << std::endl;
+    std::cout << "Fetching device: ";
+
+    if((target_device = get_best_device(platforms, platforms_n)) == nullptr)
+    {
+        std::cout << "Device not found." << std::endl;
+        return 1;
     }
-    cl_device_id target_device = devices[0];
-    size_t sz;
-    cout << "Размер видеопамяти: ";
+
+    clGetDeviceInfo(target_device, CL_DEVICE_NAME, sizeof(temp_buffer), temp_buffer, nullptr);
+    std::cout << temp_buffer << " (done)" << std::endl;
+
+    std::cout << "VRAM size: ";
+
     err = clGetDeviceInfo(target_device, CL_DEVICE_GLOBAL_MEM_SIZE, sizeof(sz), &sz, nullptr);
     check_cl_error(err);
 
-    cout << sz / 1024 / 1024 << " MiB" << endl;
-
-    cout << "Целевой графический процессор: " << device_info[0].name << std::endl << std::endl;
+    std::cout << sz / 1024 / 1024 << " MiB" << std::endl;
 
     // create cl context
     cl_context gpu_context = clCreateContext(nullptr, 1, &target_device, nullptr, nullptr, &err);
     check_cl_error(err);
 
     // create command queue
-    cl_command_queue command = clCreateCommandQueue(gpu_context, target_device, 0, &err);
+    command = clCreateCommandQueue(gpu_context, target_device, 0, &err);
     check_cl_error(err);
 
     // can exec program on gpu
-    cout << "Выполняем сложение двух векторов в GPU: ";
+    std::cout << "Executing adding vectors on GPU: ";
     err = clGetDeviceInfo(target_device, CL_DEVICE_COMPILER_AVAILABLE, sizeof(status), &status, nullptr);
     check_cl_error(err);
-    if (status == CL_TRUE) {
-        std::size_t vector_size = 100000;
+    if(status == CL_TRUE)
+    {
+        std::cout << "supported" << std::endl;
 
-        std::vector<int> _vector_a(vector_size, 0);
-        std::vector<int> _vector_b(vector_size, 0);
-        std::vector<int> _vector_c(vector_size, 0);
+        std::size_t vector_size = 0x1000000;
 
-        for (int x = 0; x < vector_size; ++x) {
+        std::vector<float> _vector_a(vector_size, 0);
+        std::vector<float> _vector_b(vector_size, 0);
+        std::vector<float> _vector_c(vector_size, 0);
+
+        for(x = 0; x < vector_size; ++x)
+        {
             _vector_a[x] = x + 1;
             _vector_b[x] = x + 1;
         }
 
-        cout << "поддерживается" << std::endl;
-
-        const char* source = "__kernel void add_vectors(__global int * a, __global int * b, __global int * c) {"
-                             "int idx = get_global_id(0);"
-                             "c[idx] = a[idx]+b[idx];"
-                             "}";
-        sz = std::strlen(source);
-        cl_program program = clCreateProgramWithSource(gpu_context, 1, &source, &sz, &err);
+        const char *gpu_source = "__kernel void add_vectors(__global float * a, "
+                                 "__global float * b, __global float * c) {"
+                                 "      int idx = get_global_id(0);"
+                                 "      c[idx] = a[idx] + b[idx];"
+                                 "}";
+        sz = std::strlen(gpu_source);
+        cl_program program = clCreateProgramWithSource(gpu_context, 1, &gpu_source, &sz, &err);
         check_cl_error(err);
 
         err = clBuildProgram(program, 1, &target_device, nullptr, nullptr, nullptr);
         check_cl_error(err);
-        do {
+        do
+        {
             check_cl_error(clGetProgramBuildInfo(program, target_device, CL_PROGRAM_BUILD_STATUS, sizeof(status), &status, nullptr));
-        } while (status == CL_BUILD_IN_PROGRESS);
+        } while(status == CL_BUILD_IN_PROGRESS);
 
         cl_kernel kernel = clCreateKernel(program, "add_vectors", &err);
         check_cl_error(err);
 
         cl_mem _mem_a, _mem_b, _mem_output;
 
-        _mem_a = clCreateBuffer(gpu_context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, vector_size * sizeof(int), _vector_a.data(), &err);
+        _mem_a = clCreateBuffer(gpu_context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, vector_size * sizeof(float), _vector_a.data(), &err);
         check_cl_error(err);
 
-        _mem_b = clCreateBuffer(gpu_context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, vector_size * sizeof(int), _vector_b.data(), &err);
+        _mem_b = clCreateBuffer(gpu_context, CL_MEM_COPY_HOST_PTR | CL_MEM_READ_ONLY, vector_size * sizeof(float), _vector_b.data(), &err);
         check_cl_error(err);
 
-        _mem_output = clCreateBuffer(gpu_context, CL_MEM_READ_WRITE, vector_size * sizeof(int), _vector_c.data(), &err);
+        _mem_output =
+            clCreateBuffer(gpu_context, CL_MEM_READ_WRITE | CL_MEM_USE_HOST_PTR, vector_size * sizeof(float), _vector_c.data(), &err);
         check_cl_error(err);
 
         err = clSetKernelArg(kernel, 0, sizeof(cl_mem), &_mem_a);
@@ -214,29 +290,38 @@ int main()
         err = clSetKernelArg(kernel, 2, sizeof(cl_mem), &_mem_output);
         check_cl_error(err);
 
-        // execute
         size_t group_size;
-        err = clGetKernelWorkGroupInfo(kernel, target_device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(size_t), &group_size, nullptr);
+        err = clGetKernelWorkGroupInfo(kernel, target_device, CL_KERNEL_WORK_GROUP_SIZE, sizeof(group_size), &group_size, nullptr);
         check_cl_error(err);
 
-        err = clEnqueueNDRangeKernel(command, kernel, 1, nullptr, &group_size, &vector_size, 0, nullptr, nullptr);
-        check_cl_error(err);
+        // execute
+        auto last_time = std::chrono::steady_clock::now();
+        err = clEnqueueNDRangeKernel(command, kernel, 1, nullptr, &vector_size, nullptr, 0, nullptr, nullptr);
 
-        // test reuslt
-        err = clEnqueueReadBuffer(command, _mem_output, CL_TRUE, 0, vector_size * sizeof(int), _vector_c.data(), 0, 0, 0);
+        auto new_time = std::chrono::steady_clock::now();
+        auto ellapsed = std::chrono::duration_cast<std::chrono::microseconds>(new_time - last_time);
+
+        std::cout << "Execution delay: " << ellapsed.count() << " mcs" << std::endl;
+
         check_cl_error(err);
 
         // Wait finising queue command's
         clFinish(command);
 
+        // test reuslt
+        err = clEnqueueReadBuffer(command, _mem_output, CL_TRUE, 0, vector_size * sizeof(float), _vector_c.data(), 0, 0, 0);
+        check_cl_error(err);
+
         status = 0;
-        for (x = 0; x < vector_size; ++x) {
-            if (_vector_a[x] + _vector_b[x] != _vector_c[x]) {
+        for(x = 0; x < vector_size; ++x)
+        {
+            if(_vector_a[x] + _vector_b[x] != _vector_c[x])
+            {
                 ++status;
             }
         }
 
-        std::cout << "Результат векторов завершен. Ошибок: " << status << std::endl;
+        std::cout << "Execution complete. Errors: " << status << std::endl;
 
         // release
         clReleaseMemObject(_mem_a);
@@ -244,41 +329,41 @@ int main()
         clReleaseMemObject(_mem_output);
 
         clReleaseKernel(kernel);
-    } else {
-        cout << "Компилятор не поддерживается (пропуск)" << std::endl;
+    }
+    else
+    {
+        std::cout << "is not supported (skip)" << std::endl;
     }
     // create cl buffer (GPU Memory)
     constexpr auto mem_size = 1024 * 1024;
     cl_mem mem_gpu = clCreateBuffer(gpu_context, CL_MEM_READ_WRITE, mem_size, nullptr, &err);
     check_cl_error(err);
-    cout << std::endl << "Выделено памяти из графического процессора: " << mem_size / 1024 << " КиБ" << endl;
+    std::cout << std::endl << "VRAM allocated size: " << mem_size / 1024 << " KiB" << std::endl;
 
-    char* text_to_gpu_mem = strdup(getenv("USER"));
-    cout << "КОМПЬЮТЕР -> ГПУ: \"" << text_to_gpu_mem << "\" ... ";
-    check_cl_error(clEnqueueWriteBuffer(command, mem_gpu, CL_TRUE, 0, strlen(text_to_gpu_mem), text_to_gpu_mem, 0, nullptr, nullptr));
+    strcpy(temp_buffer, getenv("USER"));
+    std::cout << "COMPUTER -> GPU: \"" << temp_buffer << "\" ... ";
+    check_cl_error(clEnqueueWriteBuffer(command, mem_gpu, CL_TRUE, 0, sz = strlen(temp_buffer), temp_buffer, 0, nullptr, nullptr));
     check_cl_error(clFinish(command));
-    free(text_to_gpu_mem);
-    cout << "ваша имя записана успешно" << endl << endl;
 
-    std::this_thread::sleep_for(chrono::seconds(2));
+    // clear buffer
+    memset(temp_buffer, 0, sizeof(temp_buffer));
+    std::cout << "your name writed to GPU" << std::endl << std::endl;
 
-    cout << "Теперь читаем ваше имя из графического процессора" << endl;
-    cout << "КОМПЬЮТЕР <- ГПУ: ";
-    char text_from_gpu_mem[64] {};
-    check_cl_error(clEnqueueReadBuffer(command, mem_gpu, CL_TRUE, 0, 64, text_from_gpu_mem, 0, 0, 0));
+    std::this_thread::sleep_for(std::chrono::seconds(2));
 
-    cout << '"' << text_from_gpu_mem << '"' << endl << endl;
+    std::cout << "So, read your name from GPU" << std::endl;
+    std::cout << "COMPUTER <- GPU: ";
+
+    check_cl_error(clEnqueueReadBuffer(command, mem_gpu, CL_TRUE, 0, sz, temp_buffer, 0, 0, 0));
+
+    std::cout << '"' << temp_buffer << '"' << std::endl << std::endl;
     check_cl_error(clFinish(command));
 
     check_cl_error(clReleaseMemObject(mem_gpu));
 
     // Out information
-
-    for (x = 0; x < devices_n; ++x)
-        check_cl_error(clReleaseDevice(devices[x]));
-
     check_cl_error(clReleaseContext(gpu_context));
 
-    cout << "Программа завершена. Все ресурсы освобождены." << endl;
+    std::cout << "Program execution finished. All resources is released." << std::endl;
     return 0;
 }
