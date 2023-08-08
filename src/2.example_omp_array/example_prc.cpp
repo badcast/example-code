@@ -51,7 +51,7 @@ int main(void)
         memset(ma + thr.quot * x, FLAG_VAL, thr.quot + thr.rem);
     }
 
-    std::cout << "Press any key to close";
+    std::cout << "Press any key to close" << std::endl;
     free(ma);
 
     std::cout << "End program." << std::endl;
