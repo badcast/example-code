@@ -52,6 +52,7 @@ int main(void)
     }
 
     std::cout << "Press any key to close" << std::endl;
+    getchar();
     free(ma);
 
     std::cout << "End program." << std::endl;
