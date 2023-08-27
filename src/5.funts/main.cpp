@@ -11,14 +11,16 @@ int main()
     cin >> a;
     cout << "Фунты? (yes/no): ";
     cin >> accept;
-    accept[0]=tolower(accept[0],locale::classic());
+    accept[0] = tolower(accept[0], locale::classic());
 
     cout << "В ";
-    if(accept.front() == 'y'){
+    if(accept.front() == 'y')
+    {
         b = a * 0.45359;
         cout << "килогораммах";
     }
-    else {
+    else
+    {
         b = a / 0.45359;
         cout << "фунтах";
     }
