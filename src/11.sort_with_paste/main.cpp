@@ -5,9 +5,9 @@ using namespace std;
 
 int main(int argc, char *argv[])
 {
-    vector<int> n {31, 25, 32, 43, 59, 100};
+    vector<int> n {25, 25, 24, 43, 3, 2};
 
-    for(int i = 1; i < n.size() - 1; ++i)
+    for(int i = 1; i < n.size(); ++i)
     {
         int x = n[i];
         int j = i;
@@ -20,7 +20,7 @@ int main(int argc, char *argv[])
         n[j] = x;
     }
 
-    int pp = 0;
+
 
     return 0;
 }

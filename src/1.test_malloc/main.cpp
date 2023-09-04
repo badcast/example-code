@@ -2,7 +2,7 @@
 #include <vector>
 #include <cstdint>
 
-#ifdef __WIN32__
+#ifdef WIN32
 #include <windows.h>
 #elif __unix__
 #include <unistd.h>
