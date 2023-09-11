@@ -42,13 +42,13 @@ int main(void)
 
     size_t threads = omp_get_max_threads();
     omp_set_dynamic(0); // Explicitly disable dynamic teams
-    omp_set_num_threads(threads = std::max(1, std::min(32, threads)));
+    omp_set_num_threads(threads = std::max(1, std::min<int>(32, threads)));
     std::cout << "runned threads: " << threads << std::endl;
     std::ldiv_t thr = std::ldiv(size, threads);
 
 #pragma omp parallel for
     for (size_t x = 0; x < threads; ++x) {
-        memset((void*)static_cast<size_t>(ma) + thr.quot * x, FLAG_VAL, thr.quot + thr.rem);
+        memset((void*)(static_cast<size_t>(ma) + thr.quot * x), FLAG_VAL, thr.quot + thr.rem);
     }
 
     std::cout << "Press any key to close" << std::endl;
