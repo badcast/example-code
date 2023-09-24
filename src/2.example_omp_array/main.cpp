@@ -48,7 +48,7 @@ int main(void)
 
 #pragma omp parallel for
     for (size_t x = 0; x < threads; ++x) {
-        memset((void*)(static_cast<size_t>(ma) + thr.quot * x), FLAG_VAL, thr.quot + thr.rem);
+        memset((void*)(reinterpret_cast<size_t>(ma) + thr.quot * x), FLAG_VAL, thr.quot + thr.rem);
     }
 
     std::cout << "Press any key to close" << std::endl;
