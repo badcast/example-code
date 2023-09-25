@@ -15,12 +15,10 @@ foreach(SRC ${TARGETS})
 
   get_filename_component(EXAMPLE_PROJECT "${SRC}" PATH)
 
-
   string(FIND ${EXAMPLE_PROJECT} "/" fnd_start REVERSE)
   string(LENGTH ${EXAMPLE_PROJECT} fnd_length)
   math(EXPR fnd_start "${fnd_start} + 1")
-  string(SUBSTRING ${EXAMPLE_PROJECT} ${fnd_start} ${fnd_length}
-                    EXEC_NAME)
+  string(SUBSTRING ${EXAMPLE_PROJECT} ${fnd_start} ${fnd_length} EXEC_NAME)
 
   if(EXISTS "${EXAMPLE_PROJECT}/CMakeLists.txt")
 
