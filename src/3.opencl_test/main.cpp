@@ -31,6 +31,7 @@ private:
 
     void koperation(cl_kernel operation, const int &lhs, const int &rhs, int *result);
 
+    static cl_device_id get_best_device(const cl_platform_id platforms[], std::uint32_t num, int selplatform = -1, int seldev = -1);
 public:
     CLObject() : target_device(nullptr)
     {
@@ -54,7 +55,6 @@ public:
     int mul(int lhs, int rhs);
     int div(int lhs, int rhs);
 
-    static cl_device_id get_best_device(const cl_platform_id platforms[], std::uint32_t num, int selplatform = -1, int seldev = -1);
 };
 
 int main()
@@ -173,6 +173,8 @@ void CLObject::compile_kernels()
     check_cl_error(err);
     __kdiv = clCreateKernel(program, "kernel_div", &err);
     check_cl_error(err);
+
+    clReleaseProgram(program);
 }
 
 void CLObject::close()
@@ -182,6 +184,10 @@ void CLObject::close()
 
     clReleaseKernel(__kadd);
     clReleaseKernel(__ksub);
+    clReleaseKernel(__kmul);
+    clReleaseKernel(__kdiv);
+    clReleaseDevice(target_device);
+    target_device = nullptr;
 
     std::cout << "Program execution finished. All resources is released." << std::endl;
 }
