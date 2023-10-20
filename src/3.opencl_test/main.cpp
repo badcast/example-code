@@ -32,6 +32,7 @@ private:
     void koperation(cl_kernel operation, const int &lhs, const int &rhs, int *result);
 
     static cl_device_id get_best_device(const cl_platform_id platforms[], std::uint32_t num, int selplatform = -1, int seldev = -1);
+
 public:
     CLObject() : target_device(nullptr)
     {
@@ -55,6 +56,7 @@ public:
     int mul(int lhs, int rhs);
     int div(int lhs, int rhs);
 
+    bool checkMem();
 };
 
 int main()
@@ -63,7 +65,13 @@ int main()
 
     cl.showDevices();
 
-    cl.open();
+    if(!cl.open())
+    {
+        std::cout << "open device fail" << std::endl;
+        return -1;
+    }
+
+    cl.checkMem();
 
     int result = cl.add(100, 100);
     result = cl.sub(-1, 1000);
@@ -175,6 +183,90 @@ void CLObject::compile_kernels()
     check_cl_error(err);
 
     clReleaseProgram(program);
+}
+
+bool CLObject::checkMem()
+{
+    if(!supportCompiller())
+        return false;
+
+    char pattern = 'C';
+    int size = 1000000000;
+    constexpr size_t bs = 4000000;
+    cl_int err;
+    cl_mem _mem_a = clCreateBuffer(gpu_context, CL_MEM_READ_WRITE, size, nullptr, nullptr);
+
+    if(!_mem_a)
+        return false;
+
+    char *buffer = new char[bs];
+    if(buffer == nullptr)
+        return false;
+
+    err = clEnqueueFillBuffer(command, _mem_a, &pattern, sizeof(pattern), 0, size, 0, nullptr, nullptr);
+    check_cl_error(err);
+    // use alternative
+    if(err != CL_SUCCESS)
+    {
+        // write pattern to buffer
+        memset(buffer, pattern, bs);
+
+        size_t written = 0, remained, nextSize;
+        while(written < size)
+        {
+            remained = size - written;
+            nextSize = std::min(bs, remained);
+            err = clEnqueueWriteBuffer(command, _mem_a, CL_TRUE, written, nextSize, buffer, 0, nullptr, nullptr);
+            if(err != CL_SUCCESS)
+            {
+                check_cl_error(err);
+                break;
+            }
+            written += nextSize;
+        }
+    }
+
+    // Reading buffer and test
+    if(err == CL_SUCCESS)
+    {
+        size_t readed = 0, remained, nextBlockSize;
+        char *testPatternbuffer = new char[bs];
+        memset(testPatternbuffer, pattern, sizeof(pattern));
+        while(readed < size)
+        {
+            remained = size - readed;
+            nextBlockSize = std::min(bs, remained);
+            memset(buffer, -1, bs);
+            err = clEnqueueReadBuffer(command, _mem_a, CL_TRUE, readed, nextBlockSize, buffer, 0, nullptr, nullptr);
+            if(err != CL_SUCCESS)
+            {
+                check_cl_error(err);
+                break;
+            }
+
+            remained = 0;
+            int stack_cmp;
+            while(remained < nextBlockSize &&
+                  !memcmp(buffer + remained, testPatternbuffer, (stack_cmp = std::min<int>(nextBlockSize - remained, bs))))
+            {
+                remained += stack_cmp;
+            }
+
+            if(remained < nextBlockSize)
+            {
+                std::cout << "Block read is error: Memory is changed on load..." << std::endl;
+                break;
+            }
+
+            readed += nextBlockSize;
+        }
+        delete[] testPatternbuffer;
+    }
+
+    delete[] buffer;
+    clFinish(command);
+    clReleaseMemObject(_mem_a);
+    return true;
 }
 
 void CLObject::close()
