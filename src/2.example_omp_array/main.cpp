@@ -51,8 +51,6 @@ int main(void)
         memset((void*)(reinterpret_cast<size_t>(ma) + thr.quot * x), FLAG_VAL, thr.quot + thr.rem);
     }
 
-    std::cout << "Press any key to close" << std::endl;
-    getchar();
     free(ma);
 
     std::cout << "End program." << std::endl;
